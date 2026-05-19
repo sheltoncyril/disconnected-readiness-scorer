@@ -3,6 +3,7 @@
 
 import re
 from pathlib import Path
+from typing import List
 
 try:
     from rules.common import Finding, RuleResult
@@ -35,7 +36,7 @@ def is_production_file(filepath: Path) -> bool:
     return any(d in filepath.parts for d in PRODUCTION_DIRS) and not is_excluded_file(filepath)
 
 
-def scan_file(filepath: Path, root: Path) -> list[Finding]:
+def scan_file(filepath: Path, root: Path) -> List[Finding]:
     findings = []
     try:
         lines = filepath.read_text().splitlines()

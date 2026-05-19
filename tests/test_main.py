@@ -260,6 +260,7 @@ class TestRenderMarkdown:
             with patch("main._render_template_simple", return_value="Score: READY") as mock_simple:
                 result = render_markdown("READY", [], "repo")
                 mock_simple.assert_called_once()
+                assert result == "Score: READY"
 
 
 # --- main (integration-level) ---
@@ -306,11 +307,13 @@ class TestMain:
         fake_manifest = FakeManifest(images=[], components=[], known_issues=[])
 
         with patch("main.load_manifest", return_value=(fake_manifest, set())) as mock_load, \
+             patch("main.adapt_manifest_result", return_value=RuleResult(rule="operator-manifest")) as mock_adapt, \
              patch("importlib.import_module") as mock_import:
             mock_import.return_value = MagicMock()
             exit_code = main([".", "--rules", "manifest", "--report", "json"])
             assert exit_code == 0
             mock_load.assert_called_once()
+            mock_adapt.assert_called_once_with(fake_manifest)
 
     def test_env_var_pattern_triggers_manifest_load(self):
         fake_mod = MagicMock()

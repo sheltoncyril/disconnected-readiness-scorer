@@ -12,6 +12,7 @@ import json
 import subprocess
 from pathlib import Path
 from dataclasses import dataclass, field
+from typing import Dict, List, Tuple, Union
 
 RELATED_IMAGE_PATTERN = re.compile(r'"(RELATED_IMAGE_[A-Z0-9_]+)"')
 IMAGE_MAP_PATTERN = re.compile(r'"([^"]+)":\s*"(RELATED_IMAGE_[A-Z0-9_]+)"')
@@ -52,7 +53,7 @@ def clone_operator(target_dir: Path) -> Path:
     return target_dir
 
 
-def parse_component_images(component_dir: Path, component_name: str) -> list[ImageEntry]:
+def parse_component_images(component_dir: Path, component_name: str) -> List[ImageEntry]:
     """Parse a component's Go files for RELATED_IMAGE mappings."""
     entries = []
 
@@ -93,7 +94,7 @@ def parse_component_images(component_dir: Path, component_name: str) -> list[Ima
     return entries
 
 
-def parse_known_issues(operator_root: Path) -> tuple[list[str], list[str]]:
+def parse_known_issues(operator_root: Path) -> Tuple[List[str], List[str]]:
     """Parse component-params-env.yaml for known issues and helm components."""
     params_file = operator_root / "component-params-env.yaml"
     known_issues = []
@@ -132,7 +133,7 @@ def parse_known_issues(operator_root: Path) -> tuple[list[str], list[str]]:
     return known_issues, rhai_helm
 
 
-def build_manifest(operator_root: str | Path) -> Manifest:
+def build_manifest(operator_root: Union[str, Path]) -> Manifest:
     """Build the complete image manifest from the operator source."""
     root = Path(operator_root)
     manifest = Manifest()

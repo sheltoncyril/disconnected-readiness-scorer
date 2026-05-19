@@ -3,6 +3,7 @@
 
 import re
 from pathlib import Path
+from typing import List, Set
 
 try:
     from rules.common import Finding, RuleResult
@@ -28,7 +29,7 @@ KNOWN_BUNDLED = {
 SKIP_DIRS = {".git", "vendor", "node_modules", "__pycache__", ".tox", "venv", ".venv"}
 
 
-def load_known_mirrors(config_path: Path) -> set[str]:
+def load_known_mirrors(config_path: Path) -> Set[str]:
     """Load additional known-bundled packages from config."""
     extras = set()
     if config_path.exists():
@@ -43,7 +44,7 @@ def load_known_mirrors(config_path: Path) -> set[str]:
     return extras
 
 
-def check_requirements_file(filepath: Path, root: Path, known: set[str]) -> list[Finding]:
+def check_requirements_file(filepath: Path, root: Path, known: Set[str]) -> List[Finding]:
     findings = []
     try:
         lines = filepath.read_text().splitlines()
@@ -87,7 +88,7 @@ def check_requirements_file(filepath: Path, root: Path, known: set[str]) -> list
     return findings
 
 
-def check_runtime_pip_installs(filepath: Path, root: Path) -> list[Finding]:
+def check_runtime_pip_installs(filepath: Path, root: Path) -> List[Finding]:
     """Check for pip install calls in Python source (not requirements files)."""
     findings = []
     try:
