@@ -14,6 +14,11 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Union
 
+try:
+    from rules.common import Finding, RuleResult
+except ModuleNotFoundError:
+    from common import Finding, RuleResult
+
 RELATED_IMAGE_PATTERN = re.compile(r'"(RELATED_IMAGE_[A-Z0-9_]+)"')
 IMAGE_MAP_PATTERN = re.compile(r'"([^"]+)":\s*"(RELATED_IMAGE_[A-Z0-9_]+)"')
 KNOWN_ISSUES_PATTERN = re.compile(r'- image:\s*(RELATED_IMAGE_[A-Z0-9_]+)')
@@ -193,13 +198,8 @@ def build_manifest(operator_root: Union[str, Path]) -> Manifest:
     return manifest
 
 
-def run(operator_path: str) -> "RuleResult":
+def run(operator_path: str) -> RuleResult:
     """Run the manifest builder and return a RuleResult."""
-    try:
-        from rules.common import Finding, RuleResult
-    except ModuleNotFoundError:
-        from common import Finding, RuleResult
-
     manifest = build_manifest(operator_path)
     all_env_vars = sorted(set(e.env_var for e in manifest.images))
 

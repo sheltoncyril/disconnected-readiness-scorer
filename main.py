@@ -91,7 +91,13 @@ def load_manifest(operator_path):
     target = Path(operator_path)
     if not (target / ".git").exists():
         print("  Cloning opendatahub-operator (shallow)...", file=sys.stderr)
-        mod.clone_operator(target)
+        try:
+            mod.clone_operator(target)
+        except Exception as exc:
+            raise SystemExit(
+                f"Failed to clone opendatahub-operator: {exc}\n"
+                f"Use --operator-path to provide a pre-cloned copy."
+            ) from exc
     manifest = mod.build_manifest(str(target))
     env_vars = set(e.env_var for e in manifest.images)
     return manifest, env_vars
