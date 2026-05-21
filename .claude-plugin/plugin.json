@@ -5,8 +5,8 @@
   "author": {
     "name": "opendatahub-io"
   },
-  "homepage": "https://github.com/asanzgom/disconnected-readiness-scorer",
-  "repository": "https://github.com/asanzgom/disconnected-readiness-scorer",
+  "homepage": "https://github.com/opendatahub-io/disconnected-readiness-scorer",
+  "repository": "https://github.com/opendatahub-io/disconnected-readiness-scorer",
   "license": "Apache-2.0",
   "keywords": [
     "disconnected",
