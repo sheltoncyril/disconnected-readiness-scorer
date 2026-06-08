@@ -53,7 +53,7 @@ RULE_REGISTRY = {
     },
 }
 
-DEFAULT_RULES = ["csv", "tags", "egress", "python", "params_env"]
+DEFAULT_RULES = [k for k, v in RULE_REGISTRY.items() if not v.get("is_manifest_rule")]
 
 
 def _parse_exceptions_fallback(text):
@@ -257,9 +257,8 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--rules", default="all",
-        help="Comma-separated rule aliases, or 'all' (default: all). "
-             "'all' runs the default set (csv, tags, egress, python, params_env); "
-             "add 'manifest' explicitly for operator cross-referencing. "
+        help="Comma-separated rule aliases, 'all', or empty (default: all). "
+             "'all' or empty runs every registered rule. "
              f"Available: {', '.join(RULE_REGISTRY)}",
     )
     parser.add_argument(
@@ -297,7 +296,7 @@ def parse_args(argv=None):
 
 
 def resolve_rules(rules_arg):
-    if rules_arg == "all":
+    if not rules_arg or rules_arg == "all":
         return list(DEFAULT_RULES)
     keys = [k.strip() for k in rules_arg.split(",")]
     for k in keys:
