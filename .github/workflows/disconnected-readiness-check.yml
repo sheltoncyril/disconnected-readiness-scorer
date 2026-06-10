@@ -42,11 +42,14 @@ jobs:
           pip install pyyaml jinja2
           cd scorer
 
+          # Build command with rules if specified
+          CMD="python3 main.py \"${{ github.workspace }}\" --report json"
           if [ -n "$INPUT_RULES" ]; then
-            python3 main.py "${{ github.workspace }}" --rules "$INPUT_RULES" --report json
-          else
-            python3 main.py "${{ github.workspace }}" --report json
+            CMD="$CMD --rules \"$INPUT_RULES\""
           fi
+
+          # Run analysis and capture JSON output
+          eval $CMD > disconnected-report.json
 
       - name: Store results as artifact
         if: always()
