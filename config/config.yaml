@@ -138,7 +138,26 @@ exceptions:
   # (no repo-specific exceptions)
 
   # --- trustyai-service-operator ---
-  # (no repo-specific exceptions)
+  - rule: "image-manifest-complete"
+    repo: trustyai-service-operator
+    paths:
+      - "controllers/lmes/constants.go"
+      - "controllers/tas/constants.go"
+      - "controllers/evalhub/constants.go"
+    reason: >-
+      Fallback defaults only — images are replaced at runtime via the operator
+      ConfigMap (trustyai-service-operator-config), populated by odh-operator
+      ApplyParams() with RELATED_IMAGE digest values from OLM CSV relatedImages
+  - rule: "no-image-tags"
+    repo: trustyai-service-operator
+    paths:
+      - "controllers/lmes/constants.go"
+      - "controllers/tas/constants.go"
+      - "controllers/evalhub/constants.go"
+    reason: >-
+      Fallback defaults only — images are replaced at runtime via the operator
+      ConfigMap (trustyai-service-operator-config), populated by odh-operator
+      ApplyParams() with RELATED_IMAGE digest values from OLM CSV relatedImages
 
   # --- model-registry-operator ---
   # (no repo-specific exceptions)
