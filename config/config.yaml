@@ -172,7 +172,31 @@ exceptions:
     reason: "Auto-generated Kubernetes API models with example image strings — not runtime references"
 
   # --- models-as-a-service ---
-  # (no repo-specific exceptions)
+  # Controller default images — overridden at runtime via RELATED_IMAGE_* env
+  # vars injected by OLM. The controller's tenantreconcile package reads
+  # params.MaaSAPIImage, params.PayloadProcessingImage, and
+  # params.MaaSAPIKeyCleanupImage, then patches the corresponding
+  # Deployments/CronJobs (see patchMaaSAPIDeployment,
+  # patchPayloadProcessingDeployment, patchCleanupCronJobImage in params.go).
+  - rule: "*"
+    repo: models-as-a-service
+    paths:
+      - "maas-controller/pkg/platform/tenantreconcile/constants.go"
+    reason: "Controller default images — overridden at runtime by RELATED_IMAGE_* env vars via params.go patch functions"
+
+  - rule: "image-manifest-complete"
+    repo: models-as-a-service
+    paths:
+      - "deployment/base/maas-api/core/kustomization.yaml"
+      - "deployment/base/payload-processing/manager/kustomization.yaml"
+      - "deployment/base/maas-api/core/cronjob-cleanup.yaml"
+    reason: "Kustomize base manifests — images are injected by the controller at runtime via RELATED_IMAGE_* env vars"
+
+  - rule: "no-image-tags"
+    repo: models-as-a-service
+    paths:
+      - "deployment/base/maas-api/core/cronjob-cleanup.yaml"
+    reason: "Base manifest tag — controller patches with digest from RELATED_IMAGE_UBI_MINIMAL_IMAGE at runtime"
 
   # --- mlflow-operator ---
   # (no repo-specific exceptions)
