@@ -27,7 +27,7 @@ exceptions:
   # ---------------------------------------------------------------------------
 
   # Test directories
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/test/**"
       - "**/tests/**"
@@ -47,7 +47,7 @@ exceptions:
     reason: "Test/dev directory — not deployed in production"
 
   # Test file patterns
-  - rule: "*"
+  - rules: "*"
     paths:
       - "*_test.go"
       - "*_mock.go"
@@ -62,7 +62,7 @@ exceptions:
     reason: "Test/mock file"
 
   # CI directories
-  - rule: "*"
+  - rules: "*"
     paths:
       - ".github/**"
       - ".tekton/**"
@@ -71,7 +71,7 @@ exceptions:
     reason: "CI config — not deployed in production"
 
   # Non-production directories
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/docs/**"
       - "**/examples/**"
@@ -81,13 +81,13 @@ exceptions:
     reason: "Non-production content — not deployed in production"
 
   # OLM scorecard config
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/config/scorecard/**"
     reason: "OLM scorecard config — test images, not production"
 
   # Test kustomize overlays
-  - rule: "*"
+  - rules: "*"
     paths:
       - "config/overlays/test/**"
       - "config/overlays/test-*/**"
@@ -97,7 +97,7 @@ exceptions:
     reason: "Test/sample configuration overlays — not deployed in production"
 
   # Build files
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/Dockerfile"
       - "**/*.Dockerfile"
@@ -108,7 +108,7 @@ exceptions:
     reason: "Build file — build-time only"
 
   # Lint config
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/semgrep.yaml"
       - "**/semgrep.yml"
@@ -124,7 +124,7 @@ exceptions:
   # ---------------------------------------------------------------------------
 
   # --- odh-dashboard ---
-  - rule: "*"
+  - rules: "*"
     repo: odh-dashboard
     paths:
       - "**/cypress/**"
@@ -138,14 +138,14 @@ exceptions:
   # (no repo-specific exceptions)
 
   # --- notebooks ---
-  - rule: "*"
+  - rules: "*"
     repo: notebooks
     paths:
       - "scripts/**"
     reason: "Build-time utilities and CI scripts — not deployed in production"
 
   # --- kserve ---
-  - rule: params-env-wiring
+  - rules: params-env-wiring
     repo: kserve
     message: "*ConfigMap/inferenceservice-config{key:_example}*"
     reason: "_example is a documentation-only field in inferenceservice-config — not functional configuration"
@@ -157,7 +157,9 @@ exceptions:
   # (no repo-specific exceptions)
 
   # --- model-registry-operator ---
-  - rule: "image-manifest-complete,no-image-tags"
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
     repo: model-registry-operator
     paths:
       - "internal/controller/config/defaults.go"
@@ -186,13 +188,13 @@ exceptions:
   # (no repo-specific exceptions)
 
   # --- trainer ---
-  - rule: "*"
+  - rules: "*"
     repo: trainer
     paths:
       - "manifests/base/runtimes/**"
     reason: "Upstream default runtimes — downstream provides its own runtime manifests"
 
-  - rule: "no-image-tags"
+  - rules: "no-image-tags"
     repo: trainer
     paths:
       - "api/python_api/**"
@@ -203,13 +205,15 @@ exceptions:
   # env vars injected by OLM. constants.go defines ImageParamKeys which maps
   # params.env keys to RELATED_IMAGE_* env vars; postrender.go ApplyParams
   # patches the corresponding Deployments/CronJobs at kustomize post-render.
-  - rule: "image-manifest-complete, no-image-tags"
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
     repo: models-as-a-service
     paths:
       - "maas-controller/pkg/platform/tenantreconcile/constants.go"
     reason: "ImageParamKeys maps param names to RELATED_IMAGE_* env vars — no actual image URIs to validate"
 
-  - rule: "image-manifest-complete"
+  - rules: image-manifest-complete
     repo: models-as-a-service
     paths:
       - "deployment/base/maas-api/core/kustomization.yaml"
@@ -217,7 +221,7 @@ exceptions:
       - "deployment/base/maas-api/core/cronjob-cleanup.yaml"
     reason: "Kustomize base manifests — images are injected by the controller at runtime via RELATED_IMAGE_* env vars"
 
-  - rule: "no-image-tags"
+  - rules: no-image-tags
     repo: models-as-a-service
     paths:
       - "deployment/base/maas-api/core/cronjob-cleanup.yaml"
@@ -230,21 +234,21 @@ exceptions:
   # (no repo-specific exceptions)
 
   # --- workload-variant-autoscaler ---
-  - rule: "*"
+  - rules: "*"
     repo: workload-variant-autoscaler
     paths:
       - "**/kind-emulator/**"
     reason: "Local Kind cluster emulator — not deployed in production"
 
   # --- opendatahub-operator ---
-  - rule: "*"
+  - rules: "*"
     repo: opendatahub-operator
     paths:
       - "**/snapshots/**"
       - "**/internal/webhook/envtestutil/**"
     reason: "Test folders — not deployed in production"
 
-  - rule: "*"
+  - rules: "*"
     repo: opendatahub-operator
     paths:
       - "config/**"

@@ -114,38 +114,26 @@ Unbundled runtime dependencies: **blocker**. Unbundled dev/test dependencies: **
 
 ### Central config (`config/config.yaml`)
 
-Exception rules applied to all scanned repos.
+Exception rules applied to all scanned repos. The `rules` field accepts a single rule name, a list of rule names, or `"*"` for all rules. Prefer naming specific rules over using `"*"` — the wildcard should only be used when the excepted path genuinely cannot produce valid findings for any rule (e.g. test directories, CI config, build files). For repo-specific exceptions, consider which rules the path could realistically violate and list only those — overly broad wildcards can silently hide real issues that a more targeted exception would have caught.
 
 ```yaml
 exceptions:
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/test/**"
     reason: "Test directory — not deployed in production"
 
-  - rule: no-runtime-egress
+  - rules: no-runtime-egress
     repo: opendatahub-io/odh-dashboard
     paths:
       - "frontend/src/utilities/fetch.ts"
     reason: "Uses cluster-internal API proxy, not external egress"
 
-  - rule: "*"
+  - rules: "*"
     images:
       - "*/REPLACE_IMAGE:*"
       - "*:replace"
     reason: "Kustomize/template placeholder images"
-```
-
-### Per-repo config (`.disconnected-readiness/config.yaml`)
-
-Optional config in the target repo for repo-specific exclusions.
-
-```yaml
-exceptions:
-  - rule: no-runtime-egress
-    paths:
-      - "internal/client.go"
-    reason: "Calls cluster-internal Kubernetes API"
 ```
 
 ## Integration
