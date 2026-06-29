@@ -107,21 +107,7 @@ Severity levels for individual findings:
 
 ## Exception System
 
-All policy-based exclusions (test dirs, CI dirs, build files, etc.) are configured in `config/config.yaml` rather than hardcoded in rules. Exceptions downgrade matching blocker findings to **info** severity.
-
-### Exception fields
-
-| Field     | Required | Description                                                              |
-|-----------|----------|--------------------------------------------------------------------------|
-| `rule`    | yes      | Rule name, comma-separated list, or `*` for all rules                    |
-| `reason`  | yes      | Why this exception exists                                                |
-| `paths`   | no       | List of glob patterns — matches if ANY pattern matches                   |
-| `images`  | no       | List of glob patterns matched against finding image ref (any match wins) |
-| `message` | no       | Glob pattern matched against finding message                             |
-| `repo`    | no       | Repo name or `org/repo` — scopes exception to one component              |
-| `expires` | no       | ISO 8601 date (`YYYY-MM-DD`) after which the exception is no longer honored. Omit for permanent exceptions. |
-
-**Exception expiration:** When `expires` is set and the date has passed, the exception is no longer applied and matching findings revert to blocker severity. Exceptions expiring within 14 days generate a warning in both markdown and JSON reports. To renew an exception, update the `expires` date in `config/config.yaml` and submit a PR. Exceptions without `expires` are permanent.
+All policy-based exclusions (test dirs, CI dirs, build files, etc.) are configured in `config/config.yaml` rather than hardcoded in rules. Exceptions downgrade matching blocker findings to **info** severity. See [Add an exception](#add-an-exception) for the field reference.
 
 Path patterns support `**/` prefix to match at any depth (e.g. `**/Dockerfile` matches both `Dockerfile` and `build/Dockerfile`). Patterns ending with `/**` also match the directory itself (e.g. `**/config/scorecard/**` matches both `config/scorecard` and `config/scorecard/foo.yaml`).
 
@@ -145,13 +131,15 @@ Override with `--config /path/to/config.yaml`:
 
 ```yaml
 exceptions:
-  - rule: no-runtime-egress
+  - rules: no-runtime-egress
     repo: opendatahub-io/odh-dashboard
     paths:
       - "frontend/src/services/**"
     reason: "Frontend services call the backend BFF, not external endpoints"
 
-  - rule: "image-manifest-complete, no-image-tags"
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
     paths:
       - "config/scorecard/**"
     reason: "OLM scorecard config — test images, not production"
@@ -181,7 +169,7 @@ Single unified config in the scorer repo. Contains exception rules that apply to
 # yaml-language-server: $schema=../schemas/config.schema.json
 
 exceptions:
-  - rule: "*"
+  - rules: "*"
     paths:
       - "**/test/**"
       - "**/*tests*/**"
@@ -202,19 +190,29 @@ Exceptions are managed centrally in the scorer repository's `config/config.yaml`
 
 | Field       | Required | Description                                                                 |
 |-------------|----------|-----------------------------------------------------------------------------|
-| `rule`      | yes      | Rule name (e.g. `no-runtime-egress`)                                        |
+| `rules`     | yes      | Rule name string, `"*"` for all rules, or a list of rule names (see below)  |
 | `paths`     | *        | List of glob patterns matched against finding file path                     |
 | `images`    | *        | List of glob patterns matched against finding image ref (any match wins)    |
 | `message`   | *        | Glob pattern matched against finding message (use `*text*` for substring)   |
 | `reason`    | yes      | Why this is not a real disconnected issue                                   |
+| `repo`      | no       | Repo name or `org/repo` — scopes exception to one component                |
 | `reference` | no       | Tracking URL (GitHub Issue or Jira ticket) if this is a scanner bug         |
+| `expires`   | no       | ISO 8601 date (`YYYY-MM-DD`) after which the exception is no longer honored |
 
 \* At least one of `paths`, `images`, or `message` is required.
+
+The `rules` field accepts three forms:
+
+- **Single rule**: `rules: no-runtime-egress`
+- **List of rules**: `rules: [no-image-tags, no-runtime-egress]`
+- **Wildcard**: `rules: "*"` — matches all rules
+
+Prefer naming specific rules over using `"*"`. The wildcard should only be used when the excepted path genuinely cannot produce valid findings for any rule (e.g. test directories, CI config, build files). For repo-specific exceptions, consider which rules the path could realistically violate and list only those — overly broad wildcards can silently hide real issues that a more targeted exception would have caught.
 
 ```yaml
 exceptions:
   # Repo-specific: scoped to one component via 'repo' field
-  - rule: no-runtime-egress
+  - rules: no-runtime-egress
     repo: my-component
     paths:
       - "internal/client.go"
@@ -222,7 +220,7 @@ exceptions:
     # reference: "https://issues.redhat.com/browse/RHOAIENG-XXXXX"  # optional, for scanner bugs
 
   # Cross-component: applies to all repos (no 'repo' field)
-  - rule: no-runtime-egress
+  - rules: no-runtime-egress
     paths:
       - "**/internal/cluster/**"
     reason: "Internal cluster calls — not external egress"
@@ -236,7 +234,7 @@ If you think a finding is caused by a bug in the scanner (not just a repo-specif
 
 **"at least one scope filter"** — Include `paths`, `images`, or `message` to limit the exception. Disabling an entire rule is not allowed.
 
-**"unknown field(s)"** — Check for typos in field names. Valid fields: `rule`, `repo`, `paths`, `images`, `message`, `reason`, `reference`.
+**"unknown field(s)"** — Check for typos in field names. Valid fields: `rules`, `repo`, `paths`, `images`, `message`, `reason`, `reference`.
 
 ## PR Integration
 

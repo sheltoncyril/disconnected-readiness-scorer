@@ -81,7 +81,7 @@ All rules output JSON to stdout with `rule`, `passed`, and `findings` fields.
 
 **Exclusion logic:** Test-path exclusion is handled centrally by `config/config.yaml`, not by individual rules. The exceptions mechanism downgrades matching blocker findings to info severity based on file path globs, covering test directories, CI config, build files, and lint rules. Rules emit findings at their natural severity; the orchestrator applies exceptions post-hoc. Exceptions may have an optional `expires` date (ISO 8601 `YYYY-MM-DD`); expired exceptions are skipped in `apply_exceptions()`, and exceptions expiring within 14 days are flagged in the report output. Use `--list-expiring` to list soon-to-expire exceptions without running a scan.
 
-**Central config (`config/config.yaml`):** Single unified YAML with exception rules that apply to all scanned repos. Loaded by the orchestrator via `--exceptions` or defaults to `config/config.yaml`. JSON schema at `schemas/config.schema.json`.
+**Central config (`config/config.yaml`):** Single unified YAML with exception rules that apply to all scanned repos. Loaded by the orchestrator via `--exceptions` or defaults to `config/config.yaml`. JSON schema at `schemas/config.schema.json`. Each exception entry has a `rules` field that accepts a single rule name string, a list of rule names, or `"*"` for all rules. Rule names are validated against `RULE_REGISTRY` at load time. The wildcard `"*"` is only allowed as a standalone string, not inside a list. Prefer naming specific rules over using `"*"` — the wildcard should only be used when the excepted path genuinely cannot produce valid findings for any rule (e.g. test directories, CI config, build files). For repo-specific exceptions, consider which rules the path could realistically violate and list only those — overly broad wildcards can silently hide real issues that a more targeted exception would have caught.
 
 **Configuration:** All configuration is managed centrally through `config/config.yaml`. No per-repository configuration files are supported. Repo-specific exceptions use the `repo` field in the central config to scope them to a single component.
 
@@ -97,6 +97,8 @@ All rules output JSON to stdout with `rule`, `passed`, and `findings` fields.
 ## Post-Change Checklist
 
 After modifying rules, config, or architecture, update `README.md` and `AGENTS.md` to reflect the changes. Both files document rule behavior, config options, exceptions, and architecture — they must stay in sync with the code.
+
+When modifying a function, verify it has test coverage before declaring the change complete. If the function is untested, add tests for the changed behavior — do not rely on the absence of test failures as proof of correctness.
 
 ## Key Design Decisions
 

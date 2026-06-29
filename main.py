@@ -21,7 +21,7 @@ from pathlib import Path
 import jsonschema
 import yaml
 
-from rules.common import ArchAnalyzerResult, Finding, RuleResult
+from rules.common import ArchAnalyzerResult, ConfigError, Finding, RuleResult
 from rules.production_scope import compute_production_scope
 
 SEVERITY_ORDER = {"blocker": 0, "info": 1}
@@ -64,6 +64,10 @@ RULE_REGISTRY = {
     },
 }
 
+VALID_RULE_NAMES = frozenset(v["name"] for v in RULE_REGISTRY.values())
+VALID_RULE_NAMES_SORTED = sorted(VALID_RULE_NAMES)
+ANY_RULE = "*"
+
 DEFAULT_RULES = [k for k, v in RULE_REGISTRY.items() if not v.get("is_manifest_rule")]
 
 
@@ -90,9 +94,10 @@ def _validate_config_schema(raw, config_path):
     """Validate config dict against schemas/config.schema.json."""
     try:
         schema = json.loads(_SCHEMA_PATH.read_text())
-    except (OSError, json.JSONDecodeError):
-        print(f"WARNING: schema validation disabled ({_SCHEMA_PATH} unreadable)", file=sys.stderr)
-        return
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ConfigError(
+            f"Cannot read config schema {_SCHEMA_PATH}: {exc}"
+        ) from exc
     try:
         jsonschema.validate(raw, schema)
     except jsonschema.ValidationError as exc:
@@ -128,27 +133,34 @@ def load_central_config(config_path):
 
 
 def _validate_exceptions(exceptions, config_path):
-    """Validate exception entries have required fields."""
+    """Validate exception entries have required fields and valid rule names."""
     for i, exc in enumerate(exceptions):
         if not isinstance(exc, dict):
             raise ValueError(
                 f"Exception entry {i + 1} in {config_path} "
                 f"must be a mapping, got {type(exc).__name__}"
             )
-        if not exc.get("rule"):
+        rules = exc.get("rules")
+        if not rules:
             raise ValueError(
                 f"Exception entry {i + 1} in {config_path} "
-                f"is missing required 'rule' field"
+                f"is missing required 'rules' field"
             )
+        _validate_rules_field(rules, i, config_path)
         if not exc.get("reason"):
             raise ValueError(
-                f"Exception entry {i + 1} (rule={exc.get('rule', '?')}) "
+                f"Exception entry {i + 1} (rules={rules!r}) "
                 f"in {config_path} is missing required 'reason' field"
+            )
+        if not any(exc.get(field) for field in ("paths", "images", "message")):
+            raise ValueError(
+                f"Exception entry {i + 1} (rules={rules!r}) in {config_path} "
+                "must include at least one of 'paths', 'images', or 'message'"
             )
         expires = exc.get("expires")
         if expires is not None and not isinstance(expires, (str, date)):
             raise ValueError(
-                f"Exception entry {i + 1} (rule={exc.get('rule', '?')}) "
+                f"Exception entry {i + 1} (rules={rules!r}) "
                 f"in {config_path}: 'expires' must be a YYYY-MM-DD date string, "
                 f"got {type(expires).__name__}"
             )
@@ -157,10 +169,39 @@ def _validate_exceptions(exceptions, config_path):
                 date.fromisoformat(expires)
             except ValueError:
                 raise ValueError(
-                    f"Exception entry {i + 1} (rule={exc.get('rule', '?')}) "
+                    f"Exception entry {i + 1} (rules={rules!r}) "
                     f"in {config_path}: invalid 'expires' date '{expires}', "
                     f"expected YYYY-MM-DD format"
                 ) from None
+
+
+def _validate_rules_field(rules, entry_index, config_path):
+    """Validate semantic rules for the 'rules' field of an exception entry.
+
+    Structural validation (type, non-empty, item types) is handled by the
+    JSON schema.  This function validates business constraints the schema
+    cannot express: rule name existence and wildcard placement.
+    """
+    label = f"Exception entry {entry_index + 1} in {config_path}"
+    valid_names = VALID_RULE_NAMES_SORTED
+    if isinstance(rules, str):
+        if rules != ANY_RULE and rules not in VALID_RULE_NAMES:
+            raise ValueError(
+                f"{label}: unknown rule name '{rules}'. "
+                f"Valid names: {valid_names}"
+            )
+    elif isinstance(rules, list):
+        for item in rules:
+            if item == ANY_RULE:
+                raise ValueError(
+                    f"{label}: wildcard '{ANY_RULE}' is not allowed inside a list. "
+                    f"Use rules: \"{ANY_RULE}\" as a string instead"
+                )
+            if item not in VALID_RULE_NAMES:
+                raise ValueError(
+                    f"{label}: unknown rule name '{item}'. "
+                    f"Valid names: {valid_names}"
+                )
 
 
 def _path_matches(filepath: str, pattern: str) -> bool:
@@ -187,6 +228,20 @@ def _path_matches(filepath: str, pattern: str) -> bool:
     return fnmatch(filepath.rsplit("/", 1)[-1], pattern)
 
 
+def _normalize_rules(rules_value):
+    """Normalize a validated 'rules' field to a frozenset of rule names.
+
+    Expects ``rules_value`` to be ``str`` or ``list[str]``, as enforced
+    by the JSON schema and ``_validate_rules_field()``.  The wildcard
+    ``ANY_RULE`` is preserved so callers can check ``ANY_RULE in result``.
+    """
+    if not rules_value:
+        return frozenset()
+    if isinstance(rules_value, str):
+        return frozenset([rules_value])
+    return frozenset(rules_value)
+
+
 def apply_exceptions(results, exceptions, repo_name, *, today=None):
     """Downgrade blocker findings that match configured exceptions to info severity.
 
@@ -195,19 +250,20 @@ def apply_exceptions(results, exceptions, repo_name, *, today=None):
     hits = [0] * len(exceptions)
     if today is None:
         today = date.today()
+    exc_with_rules = [
+        (exc, _normalize_rules(exc.get("rules", "")))
+        for exc in exceptions
+    ]
     for result in results:
         for finding in result.findings:
             if finding.severity != "blocker":
                 continue
-            for i, exc in enumerate(exceptions):
+            for i, (exc, exc_rules) in enumerate(exc_with_rules):
                 exc_expires = exc.get("expires")
                 if exc_expires and exc_expires < today:
                     continue
-                exc_rule = exc.get("rule", "")
-                if exc_rule != "*":
-                    exc_rules = [r.strip() for r in exc_rule.split(",")]
-                    if result.rule not in exc_rules:
-                        continue
+                if ANY_RULE not in exc_rules and result.rule not in exc_rules:
+                    continue
                 exc_repo = exc.get("repo")
                 if exc_repo:
                     if "/" in exc_repo:
@@ -408,7 +464,7 @@ def render_json(score, results, repo_name, verbose=False, exceptions=None, excep
     if exceptions and exception_hits:
         data["exceptions"] = [
             {
-                "rule": exc.get("rule", ""),
+                "rules": sorted(_normalize_rules(exc.get("rules", ""))),
                 "reason": exc.get("reason", ""),
                 **({"repo": exc["repo"]} if exc.get("repo") else {}),
                 **({"expires": exc["expires"].isoformat()} if exc.get("expires") else {}),
@@ -420,7 +476,7 @@ def render_json(score, results, repo_name, verbose=False, exceptions=None, excep
         if expiring:
             data["expiring_exceptions"] = [
                 {
-                    "rule": exc.get("rule", ""),
+                    "rules": sorted(_normalize_rules(exc.get("rules", ""))),
                     "reason": exc.get("reason", ""),
                     **({"repo": exc["repo"]} if exc.get("repo") else {}),
                     "expires": exc["expires"].isoformat(),
@@ -433,7 +489,7 @@ def render_json(score, results, repo_name, verbose=False, exceptions=None, excep
         if expired:
             data["expired_exceptions"] = [
                 {
-                    "rule": exc.get("rule", ""),
+                    "rules": sorted(_normalize_rules(exc.get("rules", ""))),
                     "reason": exc.get("reason", ""),
                     **({"repo": exc["repo"]} if exc.get("repo") else {}),
                     "expires": exc["expires"].isoformat(),
@@ -517,7 +573,7 @@ def _build_exception_snippets(results):
         for f in r.findings:
             if f.severity != "blocker":
                 continue
-            snippet = {"rule": r.rule, "file": f.file, "line": f.line}
+            snippet = {"rules": r.rule, "file": f.file, "line": f.line}
             if f.image:
                 snippet["image"] = f.image
             if f.message:
@@ -566,21 +622,24 @@ def _build_exceptions_section(exceptions, exception_hits):
         "",
     ]
     if has_expires:
-        lines.append("| Rule | Repo | Reason | Expires | Hits |")
-        lines.append("|------|------|--------|---------|------|")
+        lines.append("| Rules | Repo | Reason | Expires | Hits |")
+        lines.append("|-------|------|--------|---------|------|")
     else:
-        lines.append("| Rule | Repo | Reason | Hits |")
-        lines.append("|------|------|--------|------|")
+        lines.append("| Rules | Repo | Reason | Hits |")
+        lines.append("|-------|------|--------|------|")
     for exc, hits in applied:
-        rule = _escape_md_cell(exc.get("rule", ""))
+        rules_value = exc.get("rules", "")
+        if isinstance(rules_value, list):
+            rules_value = ", ".join(rules_value)
+        rules_cell = _escape_md_cell(rules_value)
         repo = _escape_md_cell(exc.get("repo", ""))
         reason = _escape_md_cell(exc.get("reason", ""))
         if has_expires:
             exp = exc.get("expires")
             expires = _escape_md_cell(exp.isoformat() if exp else "")
-            lines.append(f"| {rule} | {repo} | {reason} | {expires} | {hits} |")
+            lines.append(f"| {rules_cell} | {repo} | {reason} | {expires} | {hits} |")
         else:
-            lines.append(f"| {rule} | {repo} | {reason} | {hits} |")
+            lines.append(f"| {rules_cell} | {repo} | {reason} | {hits} |")
     lines.append("")
     return "\n".join(lines)
 
@@ -636,16 +695,19 @@ def _build_expiring_exceptions_section(exceptions, exception_hits, *, today=None
         "Update the `expires` date in `config/config.yaml` to renew, "
         "or remediate the underlying findings.",
         "",
-        "| Rule | Repo | Reason | Expires | Days Left | Hits |",
-        "|------|------|--------|---------|-----------|------|",
+        "| Rules | Repo | Reason | Expires | Days Left | Hits |",
+        "|-------|------|--------|---------|-----------|------|",
     ]
     for exc, days_remaining, hits in expiring:
-        rule = _escape_md_cell(exc.get("rule", ""))
+        rules_value = exc.get("rules", "")
+        if isinstance(rules_value, list):
+            rules_value = ", ".join(rules_value)
+        rules_cell = _escape_md_cell(rules_value)
         repo = _escape_md_cell(exc.get("repo", ""))
         reason = _escape_md_cell(exc.get("reason", ""))
         expires = exc["expires"].isoformat()
         lines.append(
-            f"| {rule} | {repo} | {reason} | {expires} | {days_remaining} | {hits} |"
+            f"| {rules_cell} | {repo} | {reason} | {expires} | {days_remaining} | {hits} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -664,16 +726,19 @@ def _build_expired_exceptions_section(exceptions, *, today=None):
         "severity. Renew the `expires` date or remove the exception from "
         "`config/config.yaml`.",
         "",
-        "| Rule | Repo | Reason | Expired On | Days Ago |",
-        "|------|------|--------|------------|----------|",
+        "| Rules | Repo | Reason | Expired On | Days Ago |",
+        "|-------|------|--------|------------|----------|",
     ]
     for exc, days_since in expired:
-        rule = _escape_md_cell(exc.get("rule", ""))
+        rules_value = exc.get("rules", "")
+        if isinstance(rules_value, list):
+            rules_value = ", ".join(rules_value)
+        rules_cell = _escape_md_cell(rules_value)
         repo = _escape_md_cell(exc.get("repo", ""))
         reason = _escape_md_cell(exc.get("reason", ""))
         expires = exc["expires"].isoformat()
         lines.append(
-            f"| {rule} | {repo} | {reason} | {expires} | {days_since} |"
+            f"| {rules_cell} | {repo} | {reason} | {expires} | {days_since} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -1027,11 +1092,11 @@ def main(argv=None):
         if expired:
             found = True
             print(f"{len(expired)} expired exception(s) — no longer applied:\n")
-            print(f"{'Rule':<25} {'Repo':<30} {'Expired On':<12} "
+            print(f"{'Rules':<25} {'Repo':<30} {'Expired On':<12} "
                   f"{'Days Ago':<10} Reason")
             print("-" * 100)
             for exc, days_since in expired:
-                print(f"{exc.get('rule', ''):<25} "
+                print(f"{exc.get('rules', ''):<25} "
                       f"{exc.get('repo', ''):<30} "
                       f"{exc['expires'].isoformat():<12} {days_since:<10} "
                       f"{exc.get('reason', '')}")
@@ -1040,11 +1105,11 @@ def main(argv=None):
             found = True
             print(f"{len(expiring)} exception(s) expiring within "
                   f"{_EXPIRY_WARNING_DAYS} days:\n")
-            print(f"{'Rule':<25} {'Repo':<30} {'Expires':<12} "
+            print(f"{'Rules':<25} {'Repo':<30} {'Expires':<12} "
                   f"{'Days Left':<10} Reason")
             print("-" * 100)
             for exc, days_remaining, _ in expiring:
-                print(f"{exc.get('rule', ''):<25} "
+                print(f"{exc.get('rules', ''):<25} "
                       f"{exc.get('repo', ''):<30} "
                       f"{exc['expires'].isoformat():<12} {days_remaining:<10} "
                       f"{exc.get('reason', '')}")
@@ -1059,7 +1124,7 @@ def main(argv=None):
 
         with tempfile.TemporaryDirectory(prefix="odh-operator-") as tmp_dir:
             return _run(args, tmp_dir)
-    except ArchAnalyzerError as exc:
+    except (ArchAnalyzerError, ConfigError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

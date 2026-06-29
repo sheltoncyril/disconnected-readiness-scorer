@@ -9,11 +9,14 @@
       "description": "Exception rules that downgrade matching blocker findings to info severity.",
       "items": {
         "type": "object",
-        "required": ["rule", "reason"],
+        "required": ["rules", "reason"],
         "properties": {
-          "rule": {
-            "type": "string",
-            "description": "Rule name, comma-separated list, or '*' for all rules."
+          "rules": {
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true }
+            ],
+            "description": "Rule name(s) this exception applies to. A single rule name string, '*' for all rules, or a list of rule names."
           },
           "reason": {
             "type": "string",

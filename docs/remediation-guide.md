@@ -121,7 +121,7 @@ The centralized [config/config.yaml](https://github.com/opendatahub-io/disconnec
 Example:
 ```yaml
 exceptions:
-  - rule: "*"
+  - rules: "*"
     paths:
       - "internal/devtools/**"
     repo: opendatahub-io/kserve
