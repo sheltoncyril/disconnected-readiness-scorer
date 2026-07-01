@@ -195,6 +195,15 @@ exceptions:
     expires: "2026-12-31"
     reference: "https://issues.redhat.com/browse/RHOAIENG-69993"
 
+  # Test-only constant for OAuth proxy image
+  - rules: image-manifest-complete
+    repo: kserve
+    paths:
+      - "pkg/constants/constants_odh.go"
+    message: "*odh-kube-auth-proxy*"
+    reason: "Test-only constant — OauthProxyImage only used in *_test.go and tests_common.go files, not in production code. Comment at line 54 confirms 'Used for test purposes'"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69993"
+
   # --- kuberay ---
   - rules: "*"
     repo: kuberay
