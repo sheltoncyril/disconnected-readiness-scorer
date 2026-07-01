@@ -221,6 +221,9 @@ exceptions:
   # --- ogx-k8s-operator ---
   # (no repo-specific exceptions)
 
+  # --- ogx ---
+  # (no repo-specific exceptions)
+
   # --- trainer ---
   - rules: "*"
     repo: trainer

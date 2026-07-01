@@ -31,4 +31,5 @@ included_repositories:
   - opendatahub-io/spark-operator
   - opendatahub-io/workload-variant-autoscaler
   - opendatahub-io/opendatahub-operator
+  - opendatahub-io/ogx
   # - opendatahub-io/opendatahub-tests
