@@ -134,6 +134,40 @@ exceptions:
       - "**/*.snap.json"
     reason: "Frontend test infrastructure — not deployed in production"
 
+  - rules: "*"
+    repo: odh-dashboard
+    paths:
+      - "distributions/*/developing/**"
+    reason: "Local development tooling (Kind clusters, dev configs) — not deployed in production"
+
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
+    repo: odh-dashboard
+    paths:
+      - "packages/*/api/openapi/**"
+      - "packages/*/bff/openapi/**"
+    reason: "OpenAPI specification files — image-like strings are example values documenting API response shapes, not runtime container references"
+
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
+    repo: odh-dashboard
+    paths:
+      - "packages/*/upstream/**/openapi/**"
+    reason: "Upstream OpenAPI/Swagger documentation — example values showing API response shapes, not runtime container references"
+
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
+    repo: odh-dashboard
+    paths:
+      - "packages/*/bff/internal/api/middleware.go"
+    images:
+      - "quay.io/opendatahub/minio:*"
+    reason: "Mock data inside getMockDSPipelineApplications() — only used when MockK8Client dev flag is enabled, never in production"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69988"
+
   # --- kubeflow ---
   # (no repo-specific exceptions)
 
