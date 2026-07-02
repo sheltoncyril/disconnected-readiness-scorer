@@ -194,6 +194,24 @@ exceptions:
     message: "*odh-kube-auth-proxy*"
     reason: "Test-only constant — OauthProxyImage only used in *_test.go and tests_common.go files, not in production code. Comment at line 54 confirms 'Used for test purposes'"
 
+  # LocalModelNode controller default storage-initializer image
+  - rules:
+      - no-image-tags
+      - image-manifest-complete
+    repo: kserve
+    paths:
+      - "pkg/controller/v1alpha1/localmodelnode/controller.go"
+    message: "*storage-initializer*"
+    reason: "Default fallback image — overridden at runtime via inferenceservice-config ConfigMap, params.env wires kserve-storage-initializer to RELATED_IMAGE_ODH_KSERVE_STORAGE_INITIALIZER_IMAGE which injects the digest-pinned image"
+
+  # Modelcar init container ubi-micro — no-image-tags is secondary to image-manifest-complete fix
+  - rules: no-image-tags
+    repo: kserve
+    paths:
+      - "pkg/webhook/admission/pod/storage_initializer_injector.go"
+    message: "*ubi-micro*"
+    reason: "Modelcar init container default — tag is replaced by digest-pinned image via RELATED_IMAGE_* injection at runtime. The image-manifest-complete blocker for this line is tracked separately for a code fix in kserve"
+
   # --- kuberay ---
   - rules: "*"
     repo: kuberay
