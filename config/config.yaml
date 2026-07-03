@@ -168,6 +168,27 @@ exceptions:
     reason: "Mock data inside getMockDSPipelineApplications() — only used when MockK8Client dev flag is enabled, never in production"
     reference: "https://issues.redhat.com/browse/RHOAIENG-69988"
 
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
+    repo: odh-dashboard
+    paths:
+      - "packages/model-registry/upstream/bff/internal/repositories/model_transfer_jobs.go"
+    images:
+      - "ghcr.io/kubeflow/hub/job/async-upload:*"
+      - "quay.io/quay/busybox:*"
+    reason: "Upstream Kubeflow model-registry code — async-upload image is mitigated by existing operator configuration, busybox image is unreachable in the disconnected scenario it protects against"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69988"
+
+  - rules:
+      - image-manifest-complete
+      - no-image-tags
+    repo: odh-dashboard
+    paths:
+      - "packages/notebooks/upstream/workspaces/frontend/manifests/kustomize/base/kustomization.yaml"
+    reason: "Upstream base kustomize manifest — image is unused as bff manifests would replace this field"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69988"
+
   # --- kubeflow ---
   # (no repo-specific exceptions)
 
