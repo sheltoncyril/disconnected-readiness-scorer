@@ -301,6 +301,15 @@ exceptions:
       - "ray-operator/config/default-with-webhooks/**"
     reason: "API server and upstream default-with-webhooks kustomize overlay — not used by OpenShift kustomize, not deployed in production"
 
+  - rules: image-manifest-complete
+    repo: kuberay
+    paths:
+      - "ray-operator/controllers/ray/authentication_controller.go"
+    images:
+      - "registry.redhat.io/openshift4/ose-kube-rbac-proxy-rhel9*"
+    reason: "Default fallback image — overridden at runtime via init() function that reads RELATED_IMAGE_ODH_KUBE_RBAC_PROXY_IMAGE env var, wired through params.env → kustomize ConfigMap → Deployment env in the OpenShift overlay"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69996"
+
   # --- trustyai-service-operator ---
   # (no repo-specific exceptions)
 
