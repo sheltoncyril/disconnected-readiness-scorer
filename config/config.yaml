@@ -368,7 +368,55 @@ exceptions:
   # (no repo-specific exceptions)
 
   # --- feast ---
-  # (no repo-specific exceptions)
+
+  - rules: "*"
+    repo: feast
+    paths:
+      - "go/infra/docker/**"
+    reason: "Local development infrastructure (Docker Compose for OTel/Jaeger/Prometheus) — not deployed in production"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
+
+  - rules: "*"
+    repo: feast
+    paths:
+      - "sdk/python/feast/templates/**"
+    reason: "Template/starter code copied to user projects via 'feast init' — not part of Feast runtime, never deployed in production"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
+
+  - rules: python-imports-bundled
+    repo: feast
+    paths:
+      - "sdk/python/feast/**"
+    reason: "All 'pip install' matches are string literals in ImportError/warning messages guiding users to install optional dependencies — no actual runtime pip subprocess invocations"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
+
+  - rules: no-runtime-egress
+    repo: feast
+    paths:
+      - "sdk/python/feast/embedder.py"
+    reason: "Optional MultiModalEmbedder feature — user opt-in only, models can be pre-cached via HF_HOME/SENTENCE_TRANSFORMERS_HOME env vars for disconnected environments"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
+
+  - rules: no-runtime-egress
+    repo: feast
+    paths:
+      - "sdk/python/feast/infra/ray_initializer.py"
+    reason: "User-invoked from_huggingface() API — does not run automatically, disconnected users use alternative data sources or pre-cached datasets"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
+
+  - rules: no-runtime-egress
+    repo: feast
+    paths:
+      - "sdk/python/feast/transformation/ray_transformation.py"
+    reason: "SentenceTransformer reference is inside a docstring usage example, not runtime code"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
+
+  - rules: no-image-tags
+    repo: feast
+    paths:
+      - "sdk/python/feast/infra/compute_engines/kubernetes/k8s_engine.py"
+    reason: "Configurable default image in Pydantic config — overridden by operator image injection and user config in production"
+    reference: "https://issues.redhat.com/browse/RHOAIENG-69995"
 
   # --- ogx-k8s-operator ---
   # (no repo-specific exceptions)
