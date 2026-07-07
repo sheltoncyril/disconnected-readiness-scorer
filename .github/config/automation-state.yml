@@ -5,6 +5,12 @@
 # This file is automatically managed by the DRS PR automation system.
 # Manual changes will be overwritten and may cause automation failures.
 
-organizations: {}
+organizations:
+  opendatahub-io:
+    repo_count: 209
+    last_check: "2026-07-07T16:14:08Z"
+    last_full_scan: "2026-07-07T16:14:08Z"
 
-template_state: {}
+template_state:
+  workflow_yml_hash: "603d1d5d989d"
+  last_template_update: "2026-07-07T16:14:08Z"
