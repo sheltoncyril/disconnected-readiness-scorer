@@ -1091,6 +1091,8 @@ def main(argv=None):
                 rules_value = exc.get("rules", "")
                 if isinstance(rules_value, list):
                     rules_value = ", ".join(rules_value)
+                else:
+                    rules_value = str(rules_value)
                 print(
                     f"{rules_value:<25} "
                     f"{exc.get('repo', ''):<30} "
@@ -1107,6 +1109,8 @@ def main(argv=None):
                 rules_value = exc.get("rules", "")
                 if isinstance(rules_value, list):
                     rules_value = ", ".join(rules_value)
+                else:
+                    rules_value = str(rules_value)
                 print(
                     f"{rules_value:<25} "
                     f"{exc.get('repo', ''):<30} "
