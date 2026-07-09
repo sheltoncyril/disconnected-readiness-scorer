@@ -20,8 +20,8 @@ from main import (
     _find_expiring_exceptions,
     _get_repo_name,
     _normalize_rules,
-    _rules_display_str,
     _render_template_simple,
+    _rules_display_str,
     _run_arch_analyzer,
     _validate_config_schema,
     adapt_manifest_result,
@@ -1217,7 +1217,10 @@ class TestRulesDisplayStr:
         assert _rules_display_str("no-image-tags") == "no-image-tags"
 
     def test_list_joined(self):
-        assert _rules_display_str(["no-image-tags", "no-runtime-egress"]) == "no-image-tags, no-runtime-egress"
+        assert (
+            _rules_display_str(["no-image-tags", "no-runtime-egress"])
+            == "no-image-tags, no-runtime-egress"
+        )
 
     def test_single_item_list(self):
         assert _rules_display_str(["no-image-tags"]) == "no-image-tags"
