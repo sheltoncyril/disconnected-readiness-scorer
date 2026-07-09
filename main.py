@@ -1088,8 +1088,11 @@ def main(argv=None):
             print(f"{'Rules':<25} {'Repo':<30} {'Expired On':<12} {'Days Ago':<10} Reason")
             print("-" * 100)
             for exc, days_since in expired:
+                rules_value = exc.get("rules", "")
+                if isinstance(rules_value, list):
+                    rules_value = ", ".join(rules_value)
                 print(
-                    f"{exc.get('rules', ''):<25} "
+                    f"{rules_value:<25} "
                     f"{exc.get('repo', ''):<30} "
                     f"{exc['expires'].isoformat():<12} {days_since:<10} "
                     f"{exc.get('reason', '')}"
@@ -1101,8 +1104,11 @@ def main(argv=None):
             print(f"{'Rules':<25} {'Repo':<30} {'Expires':<12} {'Days Left':<10} Reason")
             print("-" * 100)
             for exc, days_remaining, _ in expiring:
+                rules_value = exc.get("rules", "")
+                if isinstance(rules_value, list):
+                    rules_value = ", ".join(rules_value)
                 print(
-                    f"{exc.get('rules', ''):<25} "
+                    f"{rules_value:<25} "
                     f"{exc.get('repo', ''):<30} "
                     f"{exc['expires'].isoformat():<12} {days_remaining:<10} "
                     f"{exc.get('reason', '')}"

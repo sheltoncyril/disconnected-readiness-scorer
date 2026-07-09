@@ -1785,6 +1785,49 @@ class TestListExpiring:
         assert "no-image-tags" in out
         assert "no-runtime-egress" in out
 
+    def test_list_expiring_with_list_rules_expired(self, tmp_path, capsys):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text(
+            "exceptions:\n"
+            "  - rules:\n"
+            "      - image-manifest-complete\n"
+            "      - no-image-tags\n"
+            "    reason: test multi-rule\n"
+            '    expires: "2020-01-01"\n'
+            "    repo: test-repo\n"
+            "    paths:\n"
+            '      - "foo/**"\n'
+        )
+        rc = main([".", "--list-expiring", "--config", str(cfg)])
+        assert rc == 2
+        out = capsys.readouterr().out
+        assert "1 expired exception(s)" in out
+        assert "image-manifest-complete, no-image-tags" in out
+        assert "test-repo" in out
+
+    def test_list_expiring_with_list_rules_expiring(self, tmp_path, capsys):
+        from datetime import date, timedelta
+
+        soon = (date.today() + timedelta(days=5)).isoformat()
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text(
+            "exceptions:\n"
+            "  - rules:\n"
+            "      - image-manifest-complete\n"
+            "      - no-image-tags\n"
+            "    reason: test multi-rule\n"
+            f'    expires: "{soon}"\n'
+            "    repo: test-repo\n"
+            "    paths:\n"
+            '      - "foo/**"\n'
+        )
+        rc = main([".", "--list-expiring", "--config", str(cfg)])
+        assert rc == 2
+        out = capsys.readouterr().out
+        assert "1 exception(s) expiring" in out
+        assert "image-manifest-complete, no-image-tags" in out
+        assert "test-repo" in out
+
 
 # ---------------------------------------------------------------------------
 # Expired exceptions — helpers and reports
