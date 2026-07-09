@@ -20,6 +20,7 @@ from main import (
     _find_expiring_exceptions,
     _get_repo_name,
     _normalize_rules,
+    _rules_display_str,
     _render_template_simple,
     _run_arch_analyzer,
     _validate_config_schema,
@@ -1209,6 +1210,29 @@ class TestNormalizeRules:
         assert isinstance(_normalize_rules("x"), frozenset)
         assert isinstance(_normalize_rules(["x"]), frozenset)
         assert isinstance(_normalize_rules(""), frozenset)
+
+
+class TestRulesDisplayStr:
+    def test_string_passthrough(self):
+        assert _rules_display_str("no-image-tags") == "no-image-tags"
+
+    def test_list_joined(self):
+        assert _rules_display_str(["no-image-tags", "no-runtime-egress"]) == "no-image-tags, no-runtime-egress"
+
+    def test_single_item_list(self):
+        assert _rules_display_str(["no-image-tags"]) == "no-image-tags"
+
+    def test_empty_string_returns_empty(self):
+        assert _rules_display_str("") == ""
+
+    def test_none_returns_empty(self):
+        assert _rules_display_str(None) == ""
+
+    def test_empty_list_returns_empty(self):
+        assert _rules_display_str([]) == ""
+
+    def test_wildcard(self):
+        assert _rules_display_str("*") == "*"
 
 
 # --- exception rendering ---

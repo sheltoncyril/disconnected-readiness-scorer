@@ -226,6 +226,13 @@ def _normalize_rules(rules_value):
     return frozenset(rules_value)
 
 
+def _rules_display_str(rules_value):
+    """Convert a rules field value to a human-readable display string."""
+    if isinstance(rules_value, list):
+        return ", ".join(rules_value)
+    return str(rules_value) if rules_value else ""
+
+
 def apply_exceptions(results, exceptions, repo_name, *, today=None):
     """Downgrade blocker findings that match configured exceptions to info severity.
 
@@ -625,10 +632,7 @@ def _build_exceptions_section(exceptions, exception_hits):
         lines.append("| Rules | Repo | Reason | Hits |")
         lines.append("|-------|------|--------|------|")
     for exc, hits in applied:
-        rules_value = exc.get("rules", "")
-        if isinstance(rules_value, list):
-            rules_value = ", ".join(rules_value)
-        rules_cell = _escape_md_cell(rules_value)
+        rules_cell = _escape_md_cell(_rules_display_str(exc.get("rules", "")))
         repo = _escape_md_cell(exc.get("repo", ""))
         reason = _escape_md_cell(exc.get("reason", ""))
         if has_expires:
@@ -696,10 +700,7 @@ def _build_expiring_exceptions_section(exceptions, exception_hits, *, today=None
         "|-------|------|--------|---------|-----------|------|",
     ]
     for exc, days_remaining, hits in expiring:
-        rules_value = exc.get("rules", "")
-        if isinstance(rules_value, list):
-            rules_value = ", ".join(rules_value)
-        rules_cell = _escape_md_cell(rules_value)
+        rules_cell = _escape_md_cell(_rules_display_str(exc.get("rules", "")))
         repo = _escape_md_cell(exc.get("repo", ""))
         reason = _escape_md_cell(exc.get("reason", ""))
         expires = exc["expires"].isoformat()
@@ -727,10 +728,7 @@ def _build_expired_exceptions_section(exceptions, *, today=None):
         "|-------|------|--------|------------|----------|",
     ]
     for exc, days_since in expired:
-        rules_value = exc.get("rules", "")
-        if isinstance(rules_value, list):
-            rules_value = ", ".join(rules_value)
-        rules_cell = _escape_md_cell(rules_value)
+        rules_cell = _escape_md_cell(_rules_display_str(exc.get("rules", "")))
         repo = _escape_md_cell(exc.get("repo", ""))
         reason = _escape_md_cell(exc.get("reason", ""))
         expires = exc["expires"].isoformat()
@@ -1088,11 +1086,7 @@ def main(argv=None):
             print(f"{'Rules':<25} {'Repo':<30} {'Expired On':<12} {'Days Ago':<10} Reason")
             print("-" * 100)
             for exc, days_since in expired:
-                rules_value = exc.get("rules", "")
-                if isinstance(rules_value, list):
-                    rules_value = ", ".join(rules_value)
-                else:
-                    rules_value = str(rules_value)
+                rules_value = _rules_display_str(exc.get("rules", ""))
                 print(
                     f"{rules_value:<25} "
                     f"{exc.get('repo', ''):<30} "
@@ -1106,11 +1100,7 @@ def main(argv=None):
             print(f"{'Rules':<25} {'Repo':<30} {'Expires':<12} {'Days Left':<10} Reason")
             print("-" * 100)
             for exc, days_remaining, _ in expiring:
-                rules_value = exc.get("rules", "")
-                if isinstance(rules_value, list):
-                    rules_value = ", ".join(rules_value)
-                else:
-                    rules_value = str(rules_value)
+                rules_value = _rules_display_str(exc.get("rules", ""))
                 print(
                     f"{rules_value:<25} "
                     f"{exc.get('repo', ''):<30} "
