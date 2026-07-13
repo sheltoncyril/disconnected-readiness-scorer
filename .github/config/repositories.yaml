@@ -32,4 +32,5 @@ included_repositories:
   - opendatahub-io/workload-variant-autoscaler
   - opendatahub-io/opendatahub-operator
   - opendatahub-io/ogx
+  - opendatahub-io/mcp-lifecycle-operator
   # - opendatahub-io/opendatahub-tests
