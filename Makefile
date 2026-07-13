@@ -25,6 +25,7 @@ skillsaw-fix: ## Auto-fix fixable skillsaw issues
 ruff-check: ## Check Python code with ruff
 	@echo "Running ruff check..."
 	@uv run ruff check .
+	@uv run ruff format --check .
 
 .PHONY: ruff-fix
 ruff-fix: ## Auto-fix ruff violations
