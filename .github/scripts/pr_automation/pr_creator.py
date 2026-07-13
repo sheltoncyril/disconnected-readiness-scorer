@@ -9,12 +9,16 @@ new workflow creation and enhancement of existing workflows.
 import re
 from dataclasses import dataclass
 
-from github import UnknownObjectException
-
 from .config import AutomationConfig
 from .github_client import GitHubClient
 from .utils import retry_github_operation
-from .workflows import SimpleWorkflowManager, TemplateRenderer, UpdateResult
+from .workflows import (
+    DEFAULT_WORKFLOW_PATH,
+    SimpleWorkflowManager,
+    TemplateRenderer,
+    UpdateResult,
+    detect_workflow_path,
+)
 
 
 def _extract_version_ref(content: str) -> str:
@@ -103,23 +107,22 @@ class PRCreator:
 
         try:
             # Check if workflow already exists (with retry)
+            existing_path = None
             existing_file = None
             existing_content = None
 
-            try:
+            def _detect_workflow():
+                return detect_workflow_path(repo)
 
-                def _check_workflow_exists():
-                    return repo.get_contents(".github/workflows/disconnected-readiness.yml")
-
-                existing_file = retry_github_operation(_check_workflow_exists)
+            existing_path, existing_file = retry_github_operation(_detect_workflow)
+            if existing_file:
                 existing_content = existing_file.decoded_content.decode("utf-8")
-            except UnknownObjectException:
-                pass  # File doesn't exist, we'll create a new one
 
             if existing_file and existing_content:
                 # Workflow exists - check if it needs updates
                 return self._handle_existing_workflow(
                     repo,
+                    existing_path,
                     existing_file,
                     existing_content,
                     branch_name_suffix,
@@ -135,6 +138,7 @@ class PRCreator:
     def _handle_existing_workflow(
         self,
         repo,
+        existing_path: str,
         existing_file,
         existing_content: str,
         branch_name_suffix: str,
@@ -197,6 +201,7 @@ class PRCreator:
         # Create enhancement PR
         return self._create_enhancement_pr(
             repo,
+            existing_path,
             existing_file,
             updated_content,
             update_workflow_result,
@@ -232,6 +237,7 @@ class PRCreator:
     def _create_enhancement_pr(
         self,
         repo,
+        existing_path: str,
         existing_file,
         enhanced_content: str,
         update_workflow_result: UpdateResult,
@@ -245,7 +251,13 @@ class PRCreator:
         pr_body = self._generate_enhanced_pr_body(update_workflow_result, current_ref, template_ref)
 
         return self._update_workflow_pr(
-            repo, existing_file, enhanced_content, pr_title, pr_body, branch_name_suffix
+            repo,
+            existing_path,
+            existing_file,
+            enhanced_content,
+            pr_title,
+            pr_body,
+            branch_name_suffix,
         )
 
     def _create_workflow_pr(
@@ -272,7 +284,7 @@ class PRCreator:
             # Create workflow file
             def _create_workflow_file():
                 repo.create_file(
-                    ".github/workflows/disconnected-readiness.yml",
+                    DEFAULT_WORKFLOW_PATH,
                     "Add disconnected readiness workflow",
                     workflow_content,
                     branch=branch_name,
@@ -304,6 +316,7 @@ class PRCreator:
     def _update_workflow_pr(
         self,
         repo,
+        existing_path: str,
         existing_file,
         updated_content: str,
         pr_title: str,
@@ -328,10 +341,10 @@ class PRCreator:
                     reason=f"Failed to create clean branch: {branch_name}",
                 )
 
-            # Update workflow file
+            # Update workflow file at its existing path (preserves .yml/.yaml extension)
             def _update_workflow_file():
                 repo.update_file(
-                    ".github/workflows/disconnected-readiness.yml",
+                    existing_path,
                     "Update disconnected readiness workflow (preserves customizations)",
                     updated_content,
                     existing_file.sha,

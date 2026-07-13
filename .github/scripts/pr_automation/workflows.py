@@ -22,6 +22,22 @@ from .utils import (
     retry_github_operation,
 )
 
+WORKFLOW_BASE_PATH = ".github/workflows/disconnected-readiness"
+WORKFLOW_EXTENSIONS = (".yml", ".yaml")
+DEFAULT_WORKFLOW_PATH = f"{WORKFLOW_BASE_PATH}.yml"
+
+
+def detect_workflow_path(repo) -> tuple[str | None, object | None]:
+    """Try both .yml and .yaml extensions, return (path, file_object) or (None, None)."""
+    for ext in WORKFLOW_EXTENSIONS:
+        path = f"{WORKFLOW_BASE_PATH}{ext}"
+        try:
+            file_obj = repo.get_contents(path)
+            return path, file_obj
+        except UnknownObjectException:
+            continue
+    return None, None
+
 
 @dataclass
 class UpdateResult:
@@ -44,11 +60,9 @@ class WorkflowDetector:
 
     def has_disconnected_workflow(self, repo) -> tuple[bool, str]:
         """Check if repository already has disconnected readiness workflow or pending PR."""
-        try:
-            repo.get_contents(".github/workflows/disconnected-readiness.yml")
+        path, _ = detect_workflow_path(repo)
+        if path:
             return True, "Workflow file exists"
-        except UnknownObjectException:
-            pass  # File doesn't exist, continue to check for pending PRs
 
         # Check for specific fixed branch names instead of patterns
         fixed_branches = ["drs-workflow-add", "drs-workflow-update", "drs-template-update"]
