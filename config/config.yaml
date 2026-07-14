@@ -534,3 +534,32 @@ exceptions:
       - REPLACE_IMAGE:v0.0.0-placeholder
       - REPLACE_IMAGE:v0.0.0-rhoai-placeholder
     reason: "Test kustomize overlays — not deployed in production"
+
+  # --- mcp-lifecycle-module-operator ---
+  - rules: no-image-tags
+    repo: mcp-lifecycle-module-operator
+    paths:
+      - "config/manager/manager.yaml"
+    images:
+      - "controller:*"
+    reason: "Kubebuilder scaffold placeholder — production image set by opendatahub-operator ModuleConfig.ControllerImage (RELATED_IMAGE_ODH_MCP_LIFECYCLE_MODULE_OPERATOR_IMAGE) from ODH/RHOAI Build-Config digests"
+    reference: "https://github.com/opendatahub-io/opendatahub-operator/blob/main/internal/controller/modules/mcplifecycleoperator/handler.go"
+
+  - rules: no-image-tags
+    repo: mcp-lifecycle-module-operator
+    paths:
+      - "internal/controller/resources/mcp-lifecycle-operator.yaml"
+    images:
+      - "mcp-lifecycle-operator:*"
+    reason: "Checked-in operand Deployment placeholder — replaced at reconcile via OperandImage; production value from RELATED_IMAGE_ODH_MCP_LIFECYCLE_OPERATOR_IMAGE (ODH/RHOAI Build-Config digests)"
+    reference: "https://github.com/opendatahub-io/opendatahub-operator/blob/main/internal/controller/modules/mcplifecycleoperator/handler.go"
+
+  - rules: no-image-tags
+    repo: mcp-lifecycle-module-operator
+    paths:
+      - "internal/controller/resources/mcp-lifecycle-operator.yaml"
+    images:
+      - "ghcr.io/modelcontextprotocol/servers/filesystem:*"
+      - "ghcr.io/modelcontextprotocol/servers/github:*"
+      - "custom-registry.io/my-mcp-server:*"
+    reason: "CRD OpenAPI description examples in checked-in MCPLO operand manifests — documentation only, not deployed"
