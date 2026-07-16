@@ -548,11 +548,17 @@ exceptions:
   - rules: no-image-tags
     repo: mcp-lifecycle-module-operator
     paths:
+      - "config/manifests/mcp-lifecycle-operator/**"
+    reason: "Unused — not deployed by the module-operator. Intermediate copy of the upstream MCPLO manifests, checked in only as kustomize input for `make update-operand-manifests`."
+
+  - rules: no-image-tags
+    repo: mcp-lifecycle-module-operator
+    paths:
       - "internal/controller/resources/mcp-lifecycle-operator.yaml"
     images:
-      - "mcp-lifecycle-operator:*"
-    reason: "Checked-in operand Deployment placeholder — replaced at reconcile via OperandImage; production value from RELATED_IMAGE_ODH_MCP_LIFECYCLE_OPERATOR_IMAGE (ODH/RHOAI Build-Config digests)"
-    reference: "https://github.com/opendatahub-io/opendatahub-operator/blob/main/internal/controller/modules/mcplifecycleoperator/handler.go"
+      - "quay.io/opendatahub/odh-mcp-lifecycle-operator:*"
+    reason: "Checked-in default image for the operand Deployment — replaced at reconcile via OperandImage (RELATED_IMAGE_ODH_MCP_LIFECYCLE_OPERATOR_IMAGE, digest-pinned in ODH/RHOAI Build-Config)"
+    reference: "https://github.com/opendatahub-io/mcp-lifecycle-module-operator/blob/main/internal/controller/mcplifecycleoperator_reconciler.go"
 
   - rules: no-image-tags
     repo: mcp-lifecycle-module-operator
