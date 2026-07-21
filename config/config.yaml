@@ -495,6 +495,29 @@ exceptions:
       - "deployment/base/maas-api/core/cronjob-cleanup.yaml"
     reason: "Base manifest tag — controller patches with digest from RELATED_IMAGE_UBI_MINIMAL_IMAGE at runtime"
 
+  - rules: params-env-wiring
+    repo: models-as-a-service
+    paths:
+      - "deployment/base/maas-api/**"
+      - "deployment/base/maas-controller/default/**"
+      - "deployment/base/maas-controller/manager/**"
+      - "deployment/base/payload-processing/default/**"
+      - "deployment/base/payload-processing/manager/**"
+      - "deployment/overlays/openshift/**"
+      - "deployment/overlays/xks/**"
+    images:
+      - "quay.io/opendatahub/maas-api:*"
+      - "quay.io/opendatahub/maas-controller:*"
+      - "quay.io/opendatahub/odh-ai-gateway-payload-processing:*"
+      - "registry.redhat.io/ubi9/ubi-minimal:*"
+    reason: "Base kustomize manifests — images are injected by the controller at runtime via RELATED_IMAGE_* env vars from params.env"
+
+  - rules: params-env-wiring
+    repo: models-as-a-service
+    paths:
+      - "deployment/components/odh/kserve/**"
+    reason: "Local development convenience overlay — not referenced by production kustomize overlays; KServe is deployed separately by the opendatahub-operator KServe module"
+
   # --- mlflow-operator ---
   # (no repo-specific exceptions)
 
