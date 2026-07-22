@@ -20,10 +20,12 @@ from pathlib import Path
 try:
     from rules.common import (
         NON_REGISTRY_DOMAINS,
+        RELATED_IMAGE_PATTERN,
         SKIP_DIRS,
         Finding,
         RuleResult,
         build_overlay_file_map,
+        detect_image_pattern,
         find_params_env_dirs,
         get_tracked_files,
         is_file_in_production_scope,
@@ -33,10 +35,12 @@ try:
 except ModuleNotFoundError:
     from common import (
         NON_REGISTRY_DOMAINS,
+        RELATED_IMAGE_PATTERN,
         SKIP_DIRS,
         Finding,
         RuleResult,
         build_overlay_file_map,
+        detect_image_pattern,
         find_params_env_dirs,
         get_tracked_files,
         is_file_in_production_scope,
@@ -66,34 +70,6 @@ GO_IMAGE_ASSIGN_PATTERN = re.compile(
 
 DIGEST_PATTERN = re.compile(r"@sha256:[a-f0-9]{64}")
 TAG_PATTERN = re.compile(r":[\w][\w.\-]*$")
-RELATED_IMAGE_PATTERN = re.compile(r"RELATED_IMAGE_[A-Z0-9_]+")
-
-
-def detect_image_pattern(repo_root: Path) -> str:
-    """Detect whether the repo uses RELATED_IMAGE env vars or static CSV."""
-    related_image_count = 0
-    for go_file in repo_root.rglob("*.go"):
-        if any(d in go_file.parts for d in SKIP_DIRS):
-            continue
-        try:
-            content = go_file.read_text()
-            related_image_count += len(RELATED_IMAGE_PATTERN.findall(content))
-        except (OSError, UnicodeDecodeError):
-            continue
-        if related_image_count >= 5:
-            return "env_var"
-
-    for yaml_file in repo_root.rglob("*.yaml"):
-        if any(d in yaml_file.parts for d in SKIP_DIRS):
-            continue
-        try:
-            content = yaml_file.read_text()
-            if "relatedImages:" in content and "ClusterServiceVersion" in content:
-                return "static_csv"
-        except (OSError, UnicodeDecodeError):
-            continue
-
-    return "unknown"
 
 
 def extract_related_image_vars(

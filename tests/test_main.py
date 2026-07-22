@@ -446,6 +446,120 @@ class TestMain:
             assert exit_code == 0
             mock_load.assert_called_once()
 
+    @patch("main.compute_production_scope", return_value=None)
+    def test_env_var_pattern_triggers_manifest_load_for_tags(self, _mock_scope):
+        fake_mod = MagicMock()
+        fake_mod.detect_image_pattern.return_value = "env_var"
+        fake_mod.run.return_value = RuleResult(rule="tags", passed=True)
+
+        fake_manifest = FakeManifest(images=[], components=[], known_issues=[])
+
+        with (
+            patch("main._run_arch_analyzer", return_value=None),
+            patch("main.load_manifest", return_value=(fake_manifest, set())) as mock_load,
+            patch("importlib.import_module", side_effect=_make_import_side_effect(fake_mod)),
+        ):
+            exit_code = main([".", "--rules", "tags", "--report", "json"])
+            assert exit_code == 0
+            mock_load.assert_called_once()
+
+    @patch("main.compute_production_scope", return_value=None)
+    def test_manifest_env_vars_passed_to_no_image_tags(self, _mock_scope):
+        fake_mod = MagicMock()
+        fake_mod.detect_image_pattern.return_value = "env_var"
+        fake_mod.run.return_value = RuleResult(rule="tags", passed=True)
+
+        fake_manifest = FakeManifest(images=[], components=[], known_issues=[])
+        env_vars = {"RELATED_IMAGE_FOO"}
+
+        with (
+            patch("main._run_arch_analyzer", return_value=None),
+            patch("main.load_manifest", return_value=(fake_manifest, env_vars)),
+            patch("importlib.import_module", side_effect=_make_import_side_effect(fake_mod)),
+        ):
+            exit_code = main([".", "--rules", "tags", "--report", "json"])
+            assert exit_code == 0
+            call_kwargs = fake_mod.run.call_args
+            assert call_kwargs[1].get("manifest_env_vars") == env_vars
+
+    @patch("main.compute_production_scope", return_value=None)
+    def test_manifest_env_vars_not_passed_to_egress(self, _mock_scope):
+        """manifest_env_vars must be threaded only to needs_manifest-flagged
+        rules (csv), never to unrelated rules (egress) -- verified with two
+        independently configured mocks, not a single mock shared across
+        both registry entries."""
+        csv_mod = MagicMock()
+        csv_mod.detect_image_pattern.return_value = "env_var"
+        csv_mod.run.return_value = RuleResult(rule="csv", passed=True)
+
+        egress_mod = MagicMock()
+        egress_mod.run.return_value = RuleResult(rule="egress", passed=True)
+
+        op_manifest_mock = MagicMock()
+        op_manifest_mock.parse_manifest_entries.return_value = ({}, {})
+        op_manifest_mock.parse_overlay_paths_from_arch_data.return_value = []
+
+        def _side_effect(name):
+            if name == "rules.operator_manifest":
+                return op_manifest_mock
+            if name == "rules.no_runtime_egress":
+                return egress_mod
+            return csv_mod
+
+        fake_manifest = FakeManifest(images=[], components=[], known_issues=[])
+        env_vars = {"RELATED_IMAGE_FOO"}
+
+        with (
+            patch("main._run_arch_analyzer", return_value=None),
+            patch("main.load_manifest", return_value=(fake_manifest, env_vars)),
+            patch("importlib.import_module", side_effect=_side_effect),
+        ):
+            exit_code = main([".", "--rules", "csv,egress", "--report", "json"])
+            assert exit_code == 0
+            egress_mod.run.assert_called_once()
+            assert "manifest_env_vars" not in egress_mod.run.call_args.kwargs
+            csv_mod.run.assert_called_once()
+            assert csv_mod.run.call_args.kwargs.get("manifest_env_vars") == env_vars
+
+    @patch("main.compute_production_scope", return_value=None)
+    def test_detect_image_pattern_called_once_for_static_csv_repo(self, _mock_scope):
+        """Regression: when the repo pattern is not env_var, detect_image_pattern
+        must not be called again for a second needs_manifest rule -- the
+        answer cannot change between calls against the same repo_root."""
+        fake_mod = MagicMock()
+        fake_mod.detect_image_pattern.return_value = "static_csv"
+        fake_mod.run.return_value = RuleResult(rule="rule", passed=True)
+
+        with (
+            patch("main._run_arch_analyzer", return_value=None),
+            patch("importlib.import_module", side_effect=_make_import_side_effect(fake_mod)),
+        ):
+            exit_code = main([".", "--rules", "csv,tags", "--report", "json"])
+            assert exit_code == 0
+            assert fake_mod.detect_image_pattern.call_count == 1
+
+    @patch("main.compute_production_scope", return_value=None)
+    def test_verbose_logs_which_rule_triggered_manifest_load(self, _mock_scope, capsys):
+        """Regression: --verbose gives no attribution for why the manifest
+        clone happened -- a tags-only run should explain which rule
+        detected the pattern needing the operator manifest."""
+        fake_mod = MagicMock()
+        fake_mod.detect_image_pattern.return_value = "env_var"
+        fake_mod.run.return_value = RuleResult(rule="tags", passed=True)
+
+        fake_manifest = FakeManifest(images=[], components=[], known_issues=[])
+
+        with (
+            patch("main._run_arch_analyzer", return_value=None),
+            patch("main.load_manifest", return_value=(fake_manifest, set())),
+            patch("importlib.import_module", side_effect=_make_import_side_effect(fake_mod)),
+        ):
+            exit_code = main([".", "--rules", "tags", "--verbose", "--report", "json"])
+            assert exit_code == 0
+            err = capsys.readouterr().err
+            assert "tags" in err
+            assert "env_var" in err
+
 
 # --- integration tests with arch-analyzer fixtures ---
 

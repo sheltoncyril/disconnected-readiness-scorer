@@ -37,6 +37,7 @@ Key utility functions:
 | `build_overlay_file_map(arch_data, repo_root)` | Builds a dict mapping kustomize overlay identifiers to sets of file paths using arch-analyzer's `kustomize_components` data. |
 | `is_non_production_overlay_file(filepath, scope, overlay_map)` | Returns `True` if the file belongs to a kustomize overlay that is not in the operator's deployed `overlay_paths`. Used to downgrade findings to `info`. |
 | `find_params_env_dirs(repo_root)` | Finds all directories containing both `params.env` and `kustomization.yaml`. |
+| `detect_image_pattern(repo_root)` | Detects whether the repo uses `RELATED_IMAGE_*` env vars (`env_var`) or static CSV `relatedImages` (`static_csv`). Shared by `image-manifest-complete` and `no-image-tags` — both need to know this before deciding whether to request the operator manifest. |
 
 **Skip directories** (global): `.git`, `vendor`, `node_modules`, `__pycache__`, `.tox`, `.devcontainer`
 
@@ -113,7 +114,7 @@ Non-registry domains are filtered out: `github.com`, `gitlab.com`, `golang.org`,
 |---|---|
 | **Alias** | `tags` |
 | **File** | `rules/no_image_tags.py` |
-| **Entry point** | `run(repo_root, production_scope=None, arch_data=None, non_image_prefixes=None, **_kwargs) -> RuleResult` |
+| **Entry point** | `run(repo_root, manifest_env_vars=None, production_scope=None, arch_data=None, non_image_prefixes=None, **_kwargs) -> RuleResult` |
 | **Scanned files** | `.go`, `.py`, `.yaml`, `.yml`, `.json`, `.toml` |
 | **Filters** | Git-tracked only; skips `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `package.json`; skips files > 512 KB; skips params.env directories; skips files outside production scope |
 | **External deps** | None |
@@ -138,6 +139,19 @@ Two regex patterns scan each line:
   - Source code files (`.go`, `.py`, `.ts`, `.sh`): "Hardcoded in source code."
   - Manifest files: "Manifest file not managed by params.env."
   - OCI URIs: specific message about missing digest pin.
+
+### Manifest cross-reference downgrade
+
+When `manifest_env_vars` is provided (from the operator manifest, same as `image-manifest-complete`), a blocker is downgraded to **info** if a confirmed `RELATED_IMAGE_*` var already covers the image:
+
+- **Source code files** (`is_source_code()` — `.go`, `.py`, `.ts`, `.tsx`, `.sh`): the var must be textually inside the same balanced-paren block as the image, in the same file, possibly spanning multiple lines, with any trailing line comment inside that block stripped before matching. This is any balanced parenthesized span — typically a function call, but the scanner has no syntactic awareness of call expressions specifically, so an `if (...)` condition or a tuple is matched the same way. Found via a plain paren-position-tracking scan (no AST parser, no tree-sitter): the block enclosing the image's exact `(line, column)` position is the innermost pair of matching parentheses that contains it, and the matched text is trimmed to the exact open/close paren columns — text before the open paren or after the close paren on those two lines is never included. Single- and double-quoted strings are scanned per line; backtick strings (Go raw strings, TS/TSX template literals) and Python triple-quoted strings can span multiple lines, so their state is tracked across lines. A resolved block spanning more than 80 lines is treated as unresolved (falls back to same-line only), since a span that large signals a probable mis-parse.
+- **Non-source files** (YAML, `params.env`, JSON, TOML): same-line only — there is no call-expression concept in those formats.
+- **No whole-file and no cross-file matching at all.** A var declared elsewhere in the file, or in a different (e.g. sibling) file, is never treated as coverage for this rule.
+- When the same image text appears more than once on one line (e.g. two independent calls sharing the same literal), each finding resolves against its own occurrence, not all against the first one.
+
+This is deliberately **stricter** than `image-manifest-complete`'s own same-line → whole-file → sibling-`.go`-file lookup (see "Detection logic" → "A) env_var pattern" in its rule section above), which is unchanged. A review found that reusing that coarser lookup for `no-image-tags` produced false negatives — an unrelated var anywhere in the file, or in a sibling file, being treated as "covering" an unrelated image — because downgrading a `no-image-tags` finding cancels a different rule's independently-detected tag-mutability defect outright, not just an internal annotation the way it does inside `image-manifest-complete` itself. The two rules do not share this decision logic; `no_image_tags.py`'s balanced-paren block detection is private to that module.
+
+**Known limitations:** a block containing more than one image reference or more than one `RELATED_IMAGE_*` var (e.g. a call with several arguments, or nested calls sharing an outer block) can still associate the wrong var with the wrong image — exact per-argument correspondence needs real parsing and is out of scope. A `RELATED_IMAGE_*` var name appearing inside an unrelated string literal within the same block (not the intended argument) is still treated as confirmed coverage — only trailing comments are stripped before matching, not string contents, since the intended var reference is itself normally a string literal; distinguishing "the string this rule expects" from "some other string that happens to contain the same text" needs real per-argument parsing too.
 
 ---
 
@@ -420,7 +434,7 @@ Returns `None` when no production scope can be determined, causing all rules to 
 | Alias | Module | Flags |
 |-------|--------|-------|
 | `csv` | `rules.image_manifest_complete` | `needs_manifest` |
-| `tags` | `rules.no_image_tags` | — |
+| `tags` | `rules.no_image_tags` | `needs_manifest` |
 | `egress` | `rules.no_runtime_egress` | — |
 | `python` | `rules.python_imports` | — |
 | `params_env` | `rules.params_env` | `needs_manifest` |
@@ -475,14 +489,14 @@ Default rules: all except `manifest`. The `manifest` rule must be explicitly sel
                            │
                    manifest_env_vars (set[str])
                            │
-              ┌────────────┼────────────┐
-              │            │            │
-    image_manifest    params_env    (other rules
-     _complete.py       .py         don't use it)
-              │            │
-              └────────────┘
-                     │
-                     ▼
+        ┌──────────────────┼──────────────────┬────────────┐
+        │                  │                  │            │
+   image_manifest    no_image_tags.py    params_env    (other rules
+    _complete.py    (stricter check --      .py        don't use it)
+        │             see its rule doc)      │
+        └──────────────────┴──────────────────┘
+                            │
+                            ▼
               production_scope ──────► ALL rules
               (from arch-analyzer)     (downgrade non-production findings)
                      │

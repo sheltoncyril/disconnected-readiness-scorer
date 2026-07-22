@@ -13,6 +13,7 @@ from rules.common import (
     RuleResult,
     Severity,
     build_overlay_file_map,
+    detect_image_pattern,
     is_non_production_overlay_file,
     load_config_file,
 )
@@ -318,3 +319,40 @@ class TestLoadConfigFile:
         f.write_text("- item1\n- item2\n")
         with pytest.raises(ConfigError, match="must be a YAML mapping"):
             load_config_file(f)
+
+
+class TestDetectImagePattern:
+    def _write_go_files_with_related_images(self, tmp_path, count):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir(exist_ok=True)
+        lines = [f'"RELATED_IMAGE_IMG_{i}"' for i in range(count)]
+        (pkg / "images.go").write_text("\n".join(lines))
+
+    def test_env_var_pattern_detected(self, tmp_path):
+        self._write_go_files_with_related_images(tmp_path, 6)
+        assert detect_image_pattern(tmp_path) == "env_var"
+
+    def test_below_threshold_not_env_var(self, tmp_path):
+        self._write_go_files_with_related_images(tmp_path, 3)
+        assert detect_image_pattern(tmp_path) != "env_var"
+
+    def test_static_csv_detected(self, tmp_path):
+        f = tmp_path / "csv.yaml"
+        f.write_text(
+            "kind: ClusterServiceVersion\n"
+            "spec:\n"
+            "  relatedImages:\n"
+            "    - name: img\n"
+            "      image: quay.io/org/img@sha256:" + "a" * 64 + "\n"
+        )
+        assert detect_image_pattern(tmp_path) == "static_csv"
+
+    def test_unknown_pattern(self, tmp_path):
+        assert detect_image_pattern(tmp_path) == "unknown"
+
+    def test_skips_vendor_go_files(self, tmp_path):
+        vendor = tmp_path / "vendor"
+        vendor.mkdir()
+        lines = [f'"RELATED_IMAGE_IMG_{i}"' for i in range(10)]
+        (vendor / "dep.go").write_text("\n".join(lines))
+        assert detect_image_pattern(tmp_path) == "unknown"

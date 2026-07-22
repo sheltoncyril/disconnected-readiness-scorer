@@ -1,3 +1,4 @@
+import re
 import subprocess
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -348,3 +349,37 @@ def get_tracked_files(repo_root: Path) -> set[Path] | None:
         return files
     except (FileNotFoundError, subprocess.SubprocessError):
         return None
+
+
+# ---------------------------------------------------------------------------
+# RELATED_IMAGE_* env var detection
+# ---------------------------------------------------------------------------
+
+RELATED_IMAGE_PATTERN = re.compile(r"(?<![A-Za-z0-9_])RELATED_IMAGE_[A-Z0-9_]+(?![A-Za-z0-9_])")
+
+
+def detect_image_pattern(repo_root: Path) -> str:
+    """Detect whether the repo uses RELATED_IMAGE env vars or static CSV."""
+    related_image_count = 0
+    for go_file in repo_root.rglob("*.go"):
+        if any(d in go_file.parts for d in SKIP_DIRS):
+            continue
+        try:
+            content = go_file.read_text()
+            related_image_count += len(RELATED_IMAGE_PATTERN.findall(content))
+        except (OSError, UnicodeDecodeError):
+            continue
+        if related_image_count >= 5:
+            return "env_var"
+
+    for yaml_file in repo_root.rglob("*.yaml"):
+        if any(d in yaml_file.parts for d in SKIP_DIRS):
+            continue
+        try:
+            content = yaml_file.read_text()
+            if "relatedImages:" in content and "ClusterServiceVersion" in content:
+                return "static_csv"
+        except (OSError, UnicodeDecodeError):
+            continue
+
+    return "unknown"
