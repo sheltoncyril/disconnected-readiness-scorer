@@ -59,6 +59,8 @@ exceptions:
       - "*.test.tsx"
       - "*.spec.ts"
       - "*.spec.tsx"
+      - "*.test.yml"
+      - "*.test.yaml"
     reason: "Test/mock file"
 
   # CI directories
