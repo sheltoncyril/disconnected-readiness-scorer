@@ -910,7 +910,9 @@ class TestApplyExceptions:
                 passed=False,
                 findings=[
                     Finding("blocker", "docker-compose.test.yml", 5, "nginx:latest", "mutable tag"),
-                    Finding("blocker", "docker-compose.test.yaml", 10, "redis:latest", "mutable tag"),
+                    Finding(
+                        "blocker", "docker-compose.test.yaml", 10, "redis:latest", "mutable tag"
+                    ),
                     Finding("blocker", "docker-compose.yml", 3, "postgres:latest", "mutable tag"),
                 ],
             )
