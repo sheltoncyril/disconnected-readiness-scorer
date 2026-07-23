@@ -87,6 +87,8 @@ For detailed technical documentation of each rule — detection logic, regex pat
 | `params_env` | `params-env-wiring`       | Full `params.env` → kustomize → rendered manifest → Go `os.Getenv` wiring is valid     |
 | `manifest`   | `operator-manifest`       | Builds the authoritative RELATED_IMAGE manifest from the opendatahub-operator source   |
 
+**Network access:** `csv`, `tags`, and `params_env` clone the `opendatahub-operator` repo (shallow) whenever the target repo is detected as using the `RELATED_IMAGE_*` env var pattern, to cross-reference image env vars against the authoritative manifest. Use `--operator-path` to point at a pre-cloned copy and avoid the clone (e.g. for fully offline runs).
+
 **Production scope** (not a rule): Uses arch-analyzer to identify production code directories. Files outside production scope have findings downgraded from blocker to info. Disabled with `--no-production-scope`.
 
 [arch-analyzer](https://github.com/ugiordan/architecture-analyzer) is **required** (`make install-arch-analyzer`). It runs on both the operator and target component repos to extract Dockerfile COPY sources, kustomize overlay paths, and production scope data.

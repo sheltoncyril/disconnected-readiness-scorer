@@ -21,7 +21,7 @@ from pathlib import Path
 import jsonschema
 import yaml
 
-from rules.common import ArchAnalyzerResult, ConfigError, Finding, RuleResult
+from rules.common import ArchAnalyzerResult, ConfigError, Finding, RuleResult, Severity
 from rules.production_scope import compute_production_scope
 
 SEVERITY_ORDER = {"blocker": 0, "info": 1}
@@ -43,6 +43,7 @@ RULE_REGISTRY = {
     "tags": {
         "module": "rules.no_image_tags",
         "name": "no-image-tags",
+        "needs_manifest": True,
     },
     "egress": {
         "module": "rules.no_runtime_egress",
@@ -271,7 +272,7 @@ def apply_exceptions(results, exceptions, repo_name, *, today=None):
                     continue
                 reason = exc.get("reason", "configured exception")
                 finding.message += f" [Exception: {reason}]"
-                finding.severity = "info"
+                finding.severity = Severity.INFO
                 hits[i] += 1
                 break
         if not any(f.severity == "blocker" for f in result.findings):
@@ -907,17 +908,21 @@ def _run(
     _pef_map = central_cfg.get("params_env_filenames", {})
     params_env_extra = _pef_map.get(repo_name) or _pef_map.get(repo_name.split("/")[-1]) or []
     need_manifest = "manifest" in selected
+    image_pattern = None
     for key in selected:
         if not RULE_REGISTRY[key].get("needs_manifest"):
             continue
         mod = importlib.import_module(RULE_REGISTRY[key]["module"])
         if hasattr(mod, "detect_image_pattern"):
-            pattern = mod.detect_image_pattern(Path(repo_root))
-            if pattern == "env_var":
+            if image_pattern is None:
+                image_pattern = mod.detect_image_pattern(Path(repo_root))
+            if image_pattern == "env_var":
+                _vlog(f"rule {key}: detected env_var pattern, manifest needed")
                 need_manifest = True
                 break
         elif hasattr(mod, "detect_params_env"):
             if mod.detect_params_env(Path(repo_root), extra_filenames=params_env_extra):
+                _vlog(f"rule {key}: detected params.env pattern, manifest needed")
                 need_manifest = True
                 break
 
@@ -1012,7 +1017,7 @@ def _run(
             continue
 
         kwargs = {}
-        if key in ("csv", "params_env") and manifest_env_vars is not None:
+        if entry.get("needs_manifest") and manifest_env_vars is not None:
             kwargs["manifest_env_vars"] = manifest_env_vars
         if prod_scope is not None:
             kwargs["production_scope"] = prod_scope
