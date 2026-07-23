@@ -903,6 +903,29 @@ class TestApplyExceptions:
         apply_exceptions(results, exceptions, "repo")
         assert results[0].findings[0].severity == "blocker"
 
+    def test_test_yaml_file_pattern(self):
+        results = [
+            RuleResult(
+                rule="no-image-tags",
+                passed=False,
+                findings=[
+                    Finding("blocker", "docker-compose.test.yml", 5, "nginx:latest", "mutable tag"),
+                    Finding(
+                        "blocker", "docker-compose.test.yaml", 10, "redis:latest", "mutable tag"
+                    ),
+                    Finding("blocker", "docker-compose.yml", 3, "postgres:latest", "mutable tag"),
+                ],
+            )
+        ]
+        exceptions = [
+            {"rules": "*", "paths": ["*.test.yml", "*.test.yaml"], "reason": "Test/mock file"},
+        ]
+        apply_exceptions(results, exceptions, "repo")
+        assert results[0].findings[0].severity == "info"
+        assert results[0].findings[1].severity == "info"
+        assert results[0].findings[2].severity == "blocker"
+        assert results[0].passed is False
+
 
 # --- report sorting ---
 
